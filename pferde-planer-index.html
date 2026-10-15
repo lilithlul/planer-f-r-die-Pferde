@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Pferde-Planer</title>
+<style>
+:root{--bg:#f6f1ea;--card:#fff;--text:#2b2118;--muted:#7a6a5a;--line:#e3d9cc;--accent:#8a5a2b;--accent-t:#fff;--chip:#efe6da;--sel:#fff3e0;--other:#faf6f1;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1712;--card:#272019;--text:#f1e8dc;--muted:#b1a08d;--line:#3a3128;--accent:#d49a5a;--accent-t:#1c1712;--chip:#352c22;--sel:#40301f;--other:#201a14;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1c1712;--card:#272019;--text:#f1e8dc;--muted:#b1a08d;--line:#3a3128;--accent:#d49a5a;--accent-t:#1c1712;--chip:#352c22;--sel:#40301f;--other:#201a14;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:640px;margin:0 auto;padding:12px}
+h1{font-size:1.4rem;margin:6px 0 2px}
+.sub{color:var(--muted);margin:0 0 12px;font-size:.9rem}
+.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.nav h2{margin:0;font-size:1.2rem;text-transform:capitalize}
+.nav button{border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:10px;font:inherit;font-size:1.1rem;width:42px;height:38px;cursor:pointer}
+.grid{display:grid;grid-template-columns:30px repeat(7,minmax(0,1fr));gap:3px}
+.hd{font-size:.72rem;color:var(--muted);text-align:center;padding:2px 0}
+.kw{font-size:.68rem;color:var(--accent);font-weight:700;display:flex;align-items:flex-start;justify-content:center;padding-top:6px}
+.cell{min-height:78px;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:3px;text-align:left;font:inherit;cursor:pointer;overflow:hidden;display:flex;flex-direction:column;gap:1px}
+.cell.other{background:var(--other);opacity:.55}
+.cell.today .num{background:var(--accent);color:var(--accent-t);border-radius:999px}
+.cell.sel{outline:2px solid var(--accent);background:var(--sel)}
+.num{font-size:.75rem;font-weight:600;width:20px;height:20px;display:flex;align-items:center;justify-content:center}
+.tag{font-size:.6rem;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:clip}
+.tag i{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:2px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:14px}
+.panel h3{margin:0 0 10px;font-size:1.05rem}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:var(--chip);color:var(--text);border-radius:999px;padding:8px 14px;font:inherit;cursor:pointer}
+.chip.on{background:var(--accent);color:var(--accent-t);border-color:var(--accent);font-weight:600}
+.entries{margin-top:12px;display:grid;gap:8px}
+.entry{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.95rem}
+.entry b{min-width:84px}
+.entry input{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)}
+.note{font-size:.8rem;color:var(--muted);margin-top:12px}
+.info{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin:0 0 12px;font-size:.92rem}
+.info summary{cursor:pointer;font-weight:600}
+.info ol{margin:8px 0 4px;padding-left:20px}
+.info li{margin-bottom:4px}
+.info p{margin:6px 0 0;color:var(--muted);font-size:.85rem}
+</style>
+</head>
+<body>
+<main>
+<h1>🐴 Pferde-Planer</h1>
+<details class="info" open><summary>ℹ️ So funktioniert's</summary><ol><li>Tippe im Kalender auf den Tag, an dem du kommen kannst.</li><li>Unter dem Kalender tippst du auf deinen Namen. Er wird farbig.</li><li>Trage bei „von“ und „bis“ deine Uhrzeit ein.</li><li>Wenn du doch nicht kannst, tippe nochmal auf deinen Namen. Dann bist du wieder ausgetragen.</li></ol><p>Im Kalender steht pro Tag eine Kurzmarke mit Uhrzeit: Li = Lilith, Sa = Sarah, LM = Lisa-Marie, Em = Emily. Die Zahl links ist die Kalenderwoche. Mit den Pfeilen oben wechselst du den Monat. Alle Änderungen sehen auch die anderen.</p></details>
+<div class="nav"><button id="prev" type="button" aria-label="Vorheriger Monat">‹</button><h2 id="title"></h2><button id="next" type="button" aria-label="Nächster Monat">›</button></div>
+<div class="grid" id="grid"></div>
+<div class="panel" id="panel"></div>
+<p class="note" id="note"></p>
+</main>
+<script>
+const PEOPLE=[["Lilith","Li","#c0562b"],["Sarah","Sa","#2b7fc0"],["Lisa-Marie","LM","#8a5fd0"],["Emily","Em","#2b9a5a"]];
+const WD=["Mo","Di","Mi","Do","Fr","Sa","So"];
+const pad=n=>String(n).padStart(2,"0");
+const idOf=d=>d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());
+const short=t=>t?t.replace(/^0/,"").replace(":00",""):"";
+function isoWeek(d){const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));const dn=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-dn);const y0=new Date(Date.UTC(t.getUTCFullYear(),0,1));return Math.ceil(((t-y0)/864e5+1)/7);}
+const API="https://script.google.com/macros/s/AKfycbyA7iYnu4Mt48EImNhTLf4a4Zd_Y8zpL7HgluG6qPEc5_18GZZ52CG-SRnPO8iqXFFO/exec";
+let data={},pending=0;
+const now=new Date();
+let view={y:now.getFullYear(),m:now.getMonth()};
+let sel=idOf(now);
+const $=id=>document.getElementById(id);
+
+function renderGrid(){
+  const g=$("grid");g.textContent="";
+  $("title").textContent=new Date(view.y,view.m,1).toLocaleDateString("de-DE",{month:"long",year:"numeric"});
+  const h0=document.createElement("div");h0.className="hd";h0.textContent="KW";g.appendChild(h0);
+  WD.forEach(w=>{const h=document.createElement("div");h.className="hd";h.textContent=w;g.appendChild(h);});
+  const first=new Date(view.y,view.m,1);
+  const off=(first.getDay()+6)%7;
+  const dim=new Date(view.y,view.m+1,0).getDate();
+  const weeks=Math.ceil((off+dim)/7);
+  const todayId=idOf(now);
+  for(let w=0;w<weeks;w++){
+    const mon=new Date(view.y,view.m,1-off+w*7);
+    const kw=document.createElement("div");kw.className="kw";kw.textContent=isoWeek(mon);g.appendChild(kw);
+    for(let i=0;i<7;i++){
+      const d=new Date(view.y,view.m,1-off+w*7+i);
+      const id=idOf(d);
+      const c=document.createElement("button");c.type="button";
+      c.className="cell"+(d.getMonth()!==view.m?" other":"")+(id===todayId?" today":"")+(id===sel?" sel":"");
+      const n=document.createElement("span");n.className="num";n.textContent=d.getDate();c.appendChild(n);
+      const day=data[id]||{};
+      PEOPLE.forEach(([name,ab,col])=>{
+        if(!day[name])return;
+        const t=document.createElement("span");t.className="tag";
+        const dot=document.createElement("i");dot.style.background=col;t.appendChild(dot);
+        const v=short(day[name].von),b=short(day[name].bis);
+        t.appendChild(document.createTextNode(ab+(v?" "+v+(b?"-"+b:""):"")));
+        c.appendChild(t);
+      });
+      c.onclick=()=>{sel=id;if(d.getMonth()!==view.m){view={y:d.getFullYear(),m:d.getMonth()};}renderGrid();renderPanel();$("panel").scrollIntoView({behavior:"smooth",block:"nearest"});};
+      g.appendChild(c);
+    }
+  }
+}
+
+function renderPanel(){
+  const p=$("panel");p.textContent="";
+  const [y,m,d]=sel.split("-").map(Number);
+  const dt=new Date(y,m-1,d);
+  const h=document.createElement("h3");
+  h.textContent=dt.toLocaleDateString("de-DE",{weekday:"long",day:"numeric",month:"long"})+" (KW "+isoWeek(dt)+")";
+  p.appendChild(h);
+  const day=data[sel]||{};
+  const chips=document.createElement("div");chips.className="chips";
+  PEOPLE.forEach(([name])=>{
+    const b=document.createElement("button");b.type="button";b.className="chip"+(day[name]?" on":"");b.textContent=name;
+    b.onclick=()=>{
+      const cur=Object.assign({},data[sel]||{});
+      if(cur[name])delete cur[name];else cur[name]={von:"",bis:""};
+      data[sel]=cur;save(sel);renderGrid();renderPanel();
+    };
+    chips.appendChild(b);
+  });
+  p.appendChild(chips);
+  const who=PEOPLE.filter(x=>day[x[0]]);
+  if(who.length){
+    const box=document.createElement("div");box.className="entries";
+    who.forEach(([name])=>{
+      const e=document.createElement("div");e.className="entry";
+      const nm=document.createElement("b");nm.textContent=name;e.appendChild(nm);
+      [["von","von"],["bis","bis"]].forEach(([f,lab])=>{
+        const l=document.createElement("span");l.textContent=lab;e.appendChild(l);
+        const i=document.createElement("input");i.type="time";i.value=day[name][f]||"";
+        i.onchange=()=>{data[sel][name][f]=i.value;save(sel);renderGrid();};
+        e.appendChild(i);
+      });
+      box.appendChild(e);
+    });
+    p.appendChild(box);
+  }
+}
+
+async function save(id){
+  if(!API.startsWith("http")){$("note").textContent="Hinweis: Die Adresse (API) ist noch nicht eingetragen.";return;}
+  pending++;
+  try{await fetch(API,{method:"POST",body:JSON.stringify({id:id,value:data[id]||{}})});}
+  catch(e){$("note").textContent="Speichern hat nicht geklappt. Bitte Seite neu laden.";}
+  pending--;
+}
+async function load(){
+  if(!API.startsWith("http")||pending>0)return;
+  try{
+    const r=await fetch(API);const j=await r.json();
+    if(pending>0)return;
+    const a=document.activeElement;
+    if(a&&a.tagName==="INPUT")return;
+    data=j;renderGrid();renderPanel();
+  }catch(e){}
+}
+
+$("prev").onclick=()=>{view=new Date(view.y,view.m-1,1);view={y:view.getFullYear(),m:view.getMonth()};renderGrid();};
+$("next").onclick=()=>{view=new Date(view.y,view.m+1,1);view={y:view.getFullYear(),m:view.getMonth()};renderGrid();};
+
+renderGrid();renderPanel();
+load();setInterval(load,10000);
+</script>
+</body>
+</html>
